@@ -1,0 +1,21 @@
+
+int bp = 3;
+
+
+
+void setup() {
+  // put your setup code here, to run once:
+  pinMode(bp,INPUT);
+  Serial.begin(9600);
+
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  boolean bouton = digitalRead (bp);
+  delay(100);
+  Serial.println(bouton );
+#include<LiquidCrystal.h>
+
+
+}
