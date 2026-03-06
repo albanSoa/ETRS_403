@@ -1,0 +1,37 @@
+#include<LiquidCrystal.h>
+#define RS 8 // Register Select
+#define E 9 // Enable
+#define D4 4 // Ligne de données 4
+#define D5 5 // Ligne de données 5
+#define D6 6 // Ligne de données 6
+#define D7 7 // Ligne de données 7
+LiquidCrystal lcd(RS, E, D4, D5, D6, D7); // Instanciation de l'objet
+const int analog1 = A1;
+//const int analog2 = A2;
+const int btn1=3;
+//const int btn2=2;
+const int led13=13;
+
+void setup(){
+  pinMode(btn1,INPUT);
+//  pinMode(btn2,INPUT);
+  pinMode(led13,OUTPUT);
+  lcd.begin(16,2); // Nombre de lignes et de colonnes
+  digitalWrite(led13,HIGH);
+}
+void loop(){
+  int mot_pot1 = analogRead(analog1);
+ // int mot_pot2 = analogRead(analog2);
+  boolean etat_btn1=digitalRead(btn1);
+//  boolean etat_btn2=digitalRead(btn2);
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print(mot_pot1);
+  lcd.setCursor(7,0);
+ // lcd.print(mot_pot2);
+  lcd.setCursor(0,1);
+  lcd.print(etat_btn1);
+  lcd.setCursor(7,1);
+ // lcd.print(etat_btn2);
+  delay(1000);
+}
