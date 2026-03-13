@@ -1,0 +1,43 @@
+//Motor 1
+const int motorPin1 = 3;
+const int motorPin2 = 11;
+int speed = 180;
+const int analog1 = A1;
+
+void setup(){
+  //Set pins as outputs
+  pinMode(motorPin1, OUTPUT);
+  pinMode(motorPin2, OUTPUT);
+  Serial.begin(9600);
+
+  
+
+}
+
+void loop(){
+  //Motor Control A in both directions
+  int mot_pot1 = analogRead(analog1);
+  //Serial.print("mot_pot1 : ");
+  //Serial.print(mot_pot1);
+  float tension = (mot_pot1*5.0)/1023.0;
+  float speed1 = map(mot_pot1,0,511,179,0);
+  float speed2 = map(mot_pot1,512,1023,0,179);
+  //float speed1 = (mot_pin1*180)/1024
+  if (tension > 2.5){
+    Serial.println("motorPin2");    
+      analogWrite(motorPin2, speed2);  
+  }
+  else if (tension < 2.5){   
+      analogWrite(motorPin1, speed1); 
+  }
+  else{
+    analogWrite(motorPin1, 0);
+    analogWrite(motorPin2, 0);
+  }
+  
+  
+
+  Serial.println(tension);
+  
+  
+}
