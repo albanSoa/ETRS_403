@@ -1,0 +1,18 @@
+from machine import Pin, I2C
+from time import sleep
+# Configurer I2C (SDA=GP0, SCL=GP1)
+i2c = I2C(0, scl=Pin(5), sda=Pin(4), freq=100000)
+arduino_addr = 0x08
+while True:
+    # Envoyer un message
+    i2c.writeto(arduino_addr, b'H')
+    print("Envoyé : H")
+    # Lire la réponse
+    sleep(0.1)
+    try:
+        data = i2c.readfrom(arduino_addr, 2)
+        print("Reçu :", data)
+    except OSError:
+        print("Erreur lecture")
+    sleep(1) 
+
