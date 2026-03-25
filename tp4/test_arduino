@@ -1,0 +1,41 @@
+#include <Wire.h>
+
+#define I2C_ADDR 8 // Adresse de l'Arduino sur le bus I2C
+
+#include <LiquidCrystal.h>
+
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
+
+void setup() {
+  Wire.begin(I2C_ADDR);         // Joindre le bus I2C en tant qu'esclave
+  Wire.onReceive(receiveEvent); // Fonction appelée quand on reçoit des données
+  Wire.onRequest(requestEvent); // Fonction appelée quand le Maître demande des données
+  
+  Serial.begin(9600);           // Pour voir ce qui se passe sur le Moniteur Série
+  Serial.println("Arduino I2C Esclave prêt.");
+}
+
+void loop() {
+  delay(100); // L'Arduino attend simplement. Les interruptions I2C feront tout le travail !
+}
+
+// Fonction exécutée quand le Pico envoie des données
+void receiveEvent(int howMany) {
+  Serial.print("Reçu du Pico : ");
+  while (Wire.available()) {    
+    char c = Wire.read(); // Lire l'octet reçu comme un caractèr
+    if (c == "/"){
+      lcd.setCursor(0,1);
+    }
+    else{    
+      lcd.print(c);
+    }
+  }
+  lcd.setCursor(0,0);
+  Serial.println();
+}
+
+// Fonction exécutée quand le Pico demande des données
+void requestEvent() {
+  Wire.write("Température reçue!"); // Envoie 11 octets au Pico
+}
