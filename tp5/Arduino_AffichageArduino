@@ -1,0 +1,73 @@
+#include <Wire.h>
+#include <LiquidCrystal.h>
+
+#define I2C_ADDR 8
+
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
+
+char receivedMessage[32];
+volatile bool newData = false;
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println("Debut setup");
+
+  // LCD en premier, AVANT Wire
+  lcd.begin(16, 2);
+  lcd.setCursor(0, 0);
+  lcd.print("LCD OK");
+  Serial.println("LCD OK");
+
+  delay(1000);
+
+  // Wire ensuite
+  Wire.begin(I2C_ADDR);
+  Wire.onReceive(receiveEvent);
+  Wire.onRequest(requestEvent);
+  Serial.println("Wire OK");
+
+  lcd.setCursor(0, 1);
+  lcd.print("Wire OK");
+  
+  delay(1000);
+  lcd.clear();
+  lcd.print("En attente...");
+}
+
+void loop() {
+  if (newData) {
+    newData = false;
+
+    Serial.print("Recu : ");
+    Serial.println(receivedMessage);
+
+    char* sep = strchr(receivedMessage, '/');
+    lcd.clear();
+
+    if (sep != NULL) {
+      *sep = '\0';
+      lcd.setCursor(0, 0);
+      lcd.print(receivedMessage);
+      lcd.setCursor(0, 1);
+      lcd.print(sep + 1);
+    } else {
+      lcd.setCursor(0, 0);
+      lcd.print(receivedMessage);
+    }
+  }
+  delay(50);
+}
+
+void receiveEvent(int howMany) {
+  int i = 0;
+  while (Wire.available() && i < 31) {
+    receivedMessage[i] = Wire.read();
+    i++;
+  }
+  receivedMessage[i] = '\0';
+  newData = true;
+}
+
+void requestEvent() {
+  Wire.write("OK");
+}
