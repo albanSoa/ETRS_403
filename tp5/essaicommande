@@ -1,0 +1,274 @@
+```html
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Potentiomètre + Barre de position avec valeur</title>
+
+<style>
+  body {
+    font-family: Arial;
+    margin: 40px;
+  }
+
+  .main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .left, .right {
+    width: 45%;
+    text-align: center;
+  }
+
+  h3 {
+    margin-bottom: 20px;
+  }
+
+  /* BOUTONS */
+  .buttons button {
+    display: block;
+    width: 200px;
+    margin: 10px auto;
+    padding: 12px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  .active {
+    background-color: #4CAF50;
+    color: white;
+  }
+
+  /* POTENTIOMETRE */
+  .container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .scale {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 300px;
+    font-size: 12px;
+  }
+
+  .slider-wrapper {
+    position: relative;
+    height: 300px;
+    width: 80px;
+  }
+
+  input[type=range] {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-90deg);
+    width: 300px;
+  }
+
+  .center-line {
+    position: absolute;
+    width: 60px;
+    height: 2px;
+    background: red;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  /* BARRE POSITION */
+  .position-container {
+    margin-top: 40px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .position-bar {
+    display: flex;
+    justify-content: space-between;
+    max-width: 400px;
+  }
+
+  .step {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #ccc;
+    line-height: 30px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .active-step {
+    background: #2196F3;
+    color: white;
+  }
+
+  .position-value {
+    font-size: 24px;
+    width: 40px;
+    text-align: center;
+  }
+
+  .value {
+    margin-top: 20px;
+    font-size: 20px;
+    text-align: center;
+  }
+</style>
+
+</head>
+<body>
+
+<div class="main">
+
+  <!-- GAUCHE -->
+  <div class="left">
+    <h3>Commandes</h3>
+    <div class="buttons">
+      <button id="btnForward">Avancer</button>
+      <button id="btnBackward">Reculer</button>
+      <button id="btnStop">Position 0</button>
+    </div>
+  </div>
+
+  <!-- DROITE -->
+  <div class="right">
+    <h3>Potentiomètre</h3>
+
+    <div class="container">
+      <div class="scale">
+        <div>100</div><div>80</div><div>60</div><div>40</div>
+        <div>20</div><div>0</div>
+        <div>-20</div><div>-40</div><div>-60</div>
+        <div>-80</div><div>-100</div>
+      </div>
+
+      <div class="slider-wrapper">
+        <input id="slider" type="range" min="-100" max="100" value="0">
+        <div class="center-line"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="value" id="output">Arrêt</div>
+
+<!-- BARRE DE POSITION CLIQUABLE AVEC VALEUR -->
+<div class="position-container">
+  <div class="position-bar" id="positionBar"></div>
+  <div class="position-value" id="positionValue">0</div>
+</div>
+
+<script>
+  const slider = document.getElementById("slider");
+  const output = document.getElementById("output");
+  const positionBar = document.getElementById("positionBar");
+  const positionValue = document.getElementById("positionValue");
+
+  const btnForward = document.getElementById("btnForward");
+  const btnBackward = document.getElementById("btnBackward");
+  const btnStop = document.getElementById("btnStop");
+
+  let forwardActive = false;
+  let backwardActive = false;
+
+  // Création des 9 positions
+  const steps = [];
+  for (let i = 0; i <= 8; i++) {
+    const div = document.createElement("div");
+    div.classList.add("step");
+    div.textContent = i;
+    div.dataset.index = i;
+    positionBar.appendChild(div);
+    steps.push(div);
+
+    // cliquable
+    div.addEventListener("click", () => {
+      currentPosition = i;
+      updatePositionBar();
+    });
+  }
+
+  let currentPosition = 0;
+
+  function updatePositionBar() {
+    steps.forEach(step => step.classList.remove("active-step"));
+    if (steps[currentPosition]) steps[currentPosition].classList.add("active-step");
+    positionValue.textContent = currentPosition;
+  }
+
+  function updateDisplay(val) {
+    if (val > 0) output.textContent = "Avance : " + val;
+    else if (val < 0) output.textContent = "Recule : " + Math.abs(val);
+    else output.textContent = "Arrêt";
+  }
+
+  // SLIDER
+  slider.addEventListener("input", () => {
+    forwardActive = false;
+    backwardActive = false;
+    btnForward.classList.remove("active");
+    btnBackward.classList.remove("active");
+
+    updateDisplay(parseInt(slider.value));
+  });
+
+  // BOUTONS
+  btnForward.addEventListener("click", () => {
+    forwardActive = !forwardActive;
+    backwardActive = false;
+    btnForward.classList.toggle("active", forwardActive);
+    btnBackward.classList.remove("active");
+
+    slider.value = forwardActive ? 100 : 0;
+    updateDisplay(slider.value);
+
+    if (forwardActive && currentPosition < 8) currentPosition++;
+    else if (!forwardActive && currentPosition > 0) currentPosition--;
+    updatePositionBar();
+  });
+
+  btnBackward.addEventListener("click", () => {
+    backwardActive = !backwardActive;
+    forwardActive = false;
+    btnBackward.classList.toggle("active", backwardActive);
+    btnForward.classList.remove("active");
+
+    slider.value = backwardActive ? -100 : 0;
+    updateDisplay(slider.value);
+
+    if (backwardActive && currentPosition > 0) currentPosition--;
+    else if (!backwardActive && currentPosition < 8) currentPosition++;
+    updatePositionBar();
+  });
+
+  btnStop.addEventListener("click", () => {
+    forwardActive = false;
+    backwardActive = false;
+    btnForward.classList.remove("active");
+    btnBackward.classList.remove("active");
+
+    slider.value = 0;
+    updateDisplay(0);
+
+    currentPosition = 0;
+    updatePositionBar();
+  });
+
+  // init
+  updatePositionBar();
+</script>
+
+</body>
+</html>
+```
