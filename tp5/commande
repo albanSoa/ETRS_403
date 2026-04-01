@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Potentiomètre vertical corrigé</title>
+<link rel="stylesheet" href="telecom3_style.css">
+</head>
+
+<body>
+    <header>
+        <h1>Les Télécommandes</h1>
+    </header>
+
+<nav>
+    <a href="Acceuil télécommmande ETRS 403.html"> Acceuil </a>
+</nav>
+
+
+    <div class="main">
+    
+      <!-- GAUCHE : BOUTONS -->
+      <div class="left">
+        <h3>Commandes basiques</h3>
+    
+        <div class="buttons">
+          <button id="btnForward">Avancer</button>
+          <button id="btnBackward">Reculer</button>
+          <button id="btnStop">Arrêt</button>
+        </div>
+      </div>
+    
+      <!-- DROITE : POTENTIOMETRE -->
+      <div class="right">
+        <h3>Potentiomètre</h3>
+    
+        <div class="container">
+          <div class="scale">
+            <div>100</div><div>80</div><div>60</div><div>40</div>
+            <div>20</div><div>0</div>
+            <div>-20</div><div>-40</div><div>-60</div>
+            <div>-80</div><div>-100</div>
+          </div>
+    
+          <div class="slider-wrapper">
+            <input id="slider" type="range" min="-100" max="100" value="0">
+            <div class="center-line"></div>
+          </div>
+        </div>
+      </div>
+    
+    </div>
+    
+    <div class="value" id="output">Arrêt</div>
+    
+    <script>
+      const slider = document.getElementById("slider");
+      const output = document.getElementById("output");
+    
+      const btnForward = document.getElementById("btnForward");
+      const btnBackward = document.getElementById("btnBackward");
+      const btnStop = document.getElementById("btnStop");
+    
+      let forwardActive = false;
+      let backwardActive = false;
+    
+      function updateDisplay(val) {
+        if (val > 0) {
+          output.textContent = "Avance : " + val;
+        } else if (val < 0) {
+          output.textContent = "Recule : " + Math.abs(val);
+        } else {
+          output.textContent = "Arrêt";
+        }
+      }
+    
+      slider.addEventListener("input", () => {
+        forwardActive = false;
+        backwardActive = false;
+    
+        btnForward.classList.remove("active");
+        btnBackward.classList.remove("active");
+    
+        updateDisplay(parseInt(slider.value));
+      });
+    
+      btnForward.addEventListener("click", () => {
+        forwardActive = !forwardActive;
+        backwardActive = false;
+    
+        btnForward.classList.toggle("active", forwardActive);
+        btnBackward.classList.remove("active");
+    
+        slider.value = forwardActive ? 100 : 0;
+        updateDisplay(slider.value);
+      });
+    
+      btnBackward.addEventListener("click", () => {
+        backwardActive = !backwardActive;
+        forwardActive = false;
+    
+        btnBackward.classList.toggle("active", backwardActive);
+        btnForward.classList.remove("active");
+    
+        slider.value = backwardActive ? -100 : 0;
+        updateDisplay(slider.value);
+      });
+    
+      btnStop.addEventListener("click", () => {
+        forwardActive = false;
+        backwardActive = false;
+    
+        btnForward.classList.remove("active");
+        btnBackward.classList.remove("active");
+    
+        slider.value = 0;
+        updateDisplay(0);
+      });
+    </script>
+    
+    </body>
+    </html>
+    
