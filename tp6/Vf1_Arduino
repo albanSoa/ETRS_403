@@ -2,87 +2,113 @@
 #include <LiquidCrystal.h>
 
 #define I2C_ADDR 8
-
 LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
 
 char receivedMessage[32];
 volatile bool newData = false;
-const int motorPin1 = 3;
-const int motorPin2 = 11;
+
+const int motorPin1 = 3;   // Moteur 1 → PWM pin
+const int motorPin2 = 11;  // Moteur 2 → PWM pin
+const int MOTOR_SPEED = 180;
+
+// ── Petite fonction utilitaire ──────────────────────────────────────────────
+// Cherche "KEY:VAL" dans msg et renvoie un pointeur sur VAL (ou NULL)
+char* getValue(char* msg, const char* key) {
+    char* p = strstr(msg, key);
+    if (p == NULL) return NULL;
+    return p + strlen(key);  // pointe juste après ":"
+}
 
 void setup() {
-  pinMode(motorPin1, OUTPUT);
-  pinMode(motorPin2, OUTPUT);
-  Serial.begin(9600);
-  Serial.println("Debut setup");
+    pinMode(motorPin1, OUTPUT);
+    pinMode(motorPin2, OUTPUT);
+    analogWrite(motorPin1, 0);
+    analogWrite(motorPin2, 0);
 
-  // LCD en premier, AVANT Wire
-  lcd.begin(16, 2);
-  lcd.setCursor(0, 0);
-  lcd.print("LCD OK");
-  Serial.println("LCD OK");
+    Serial.begin(9600);
+    Serial.println("Debut setup");
 
-  delay(1000);
+    lcd.begin(16, 2);
+    lcd.setCursor(0, 0);
+    lcd.print("LCD OK");
+    Serial.println("LCD OK");
+    delay(1000);
 
-  // Wire ensuite
-  Wire.begin(I2C_ADDR);
-  Wire.onReceive(receiveEvent);
-  Wire.onRequest(requestEvent);
-  Serial.println("Wire OK");
+    Wire.begin(I2C_ADDR);
+    Wire.onReceive(receiveEvent);
+    Wire.onRequest(requestEvent);
+    Serial.println("Wire OK");
+    lcd.setCursor(0, 1);
+    lcd.print("Wire OK");
+    delay(1000);
 
-  lcd.setCursor(0, 1);
-  lcd.print("Wire OK");
-  
-  delay(1000);
-  lcd.clear();
-  lcd.print("En attente...");
+    lcd.clear();
+    lcd.print("En attente...");
 }
 
 void loop() {
-  if (newData) {
+    if (!newData) { delay(50); return; }
     newData = false;
 
     Serial.print("Recu : ");
     Serial.println(receivedMessage);
 
-    char* sep = strchr(receivedMessage, '/');
-    lcd.clear();
+    // ── Parse M1 ────────────────────────────────────────────────────────────
+    char* m1val = getValue(receivedMessage, "M1:");
+    if (m1val != NULL) {
+        if (strncmp(m1val, "ON", 2) == 0) {
+            analogWrite(motorPin1, MOTOR_SPEED);
+            Serial.println("Moteur1 ON");
+        } else {
+            analogWrite(motorPin1, 0);
+            Serial.println("Moteur1 OFF");
+        }
+    }
 
-    float speed1 = map(4,0,511,179,0);
-    float speed2 = map(1,512,1023,0,179);
-    // avancer
-    Serial.print("Message : ");
-    Serial.print(receivedMessage[24]);
-    if (receivedMessage[24] == "-"){
-      analogWrite(motorPin1, speed1);
+    // ── Parse M2 ────────────────────────────────────────────────────────────
+    char* m2val = getValue(receivedMessage, "M2:");
+    if (m2val != NULL) {
+        if (strncmp(m2val, "ON", 2) == 0) {
+            analogWrite(motorPin2, MOTOR_SPEED);
+            Serial.println("Moteur2 ON");
+        } else {
+            analogWrite(motorPin2, 0);
+            Serial.println("Moteur2 OFF");
+        }
     }
-    else if (receivedMessage[24] == "<"){
-      analogWrite(motorPin2, speed2);
+
+    // ── Affichage LCD : Température + état moteurs ───────────────────────────
+    char* tval = getValue(receivedMessage, "T:");
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    if (tval != NULL) {
+        char tempStr[8] = {0};
+        int i = 0;
+        while (tval[i] != '/' && tval[i] != '\0' && i < 7) {
+            tempStr[i] = tval[i]; i++;
+        }
+        lcd.print(tempStr);
+        lcd.print("C");
     }
-    if (sep != NULL) {
-      *sep = '\0';
-      lcd.setCursor(0, 0);
-      lcd.print(receivedMessage);
-      lcd.setCursor(0, 1);
-      lcd.print(sep + 1);
-    } else {
-      lcd.setCursor(0, 0);
-      lcd.print(receivedMessage);
-    }
-  }
-  delay(50);
+
+    lcd.setCursor(0, 1);
+    lcd.print("M1:");
+    lcd.print((m1val && strncmp(m1val, "ON", 2) == 0) ? "ON  " : "OFF ");
+    lcd.print("M2:");
+    lcd.print((m2val && strncmp(m2val, "ON", 2) == 0) ? "ON" : "OFF");
+
+    delay(50);
 }
 
 void receiveEvent(int howMany) {
-  int i = 0;
-  while (Wire.available() && i < 31) {
-    receivedMessage[i] = Wire.read();
-    i++;
-  }
-  receivedMessage[i] = '\0';
-  newData = true;
+    int i = 0;
+    while (Wire.available() && i < 31) {
+        receivedMessage[i++] = Wire.read();
+    }
+    receivedMessage[i] = '\0';
+    newData = true;
 }
 
 void requestEvent() {
-  Wire.write("OK");
+    Wire.write("OK");
 }
