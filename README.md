@@ -169,14 +169,13 @@ T:24.3/L:ON/M1:ON/M2:OFF
 |---|---|
 | `T:xx.x` | Température en °C |
 | `L:ON\|OFF` | État de la LED |
-| `M1:ON\|OFF` | État du moteur 1 (Avancer) |
-| `M2:ON\|OFF` | État du moteur 2 (Reculer) |
+| `M1:ON\|OFF` | État du moteur sens horaire (Avancer) |
+| `M2:ON\|OFF` | État du moteur sens anti-horaire (Reculer) |
 
 ---
 
 ## ⚠️ Points d'attention
 
-- Les deux moteurs ne peuvent pas être actifs simultanément : activer l'un arrête l'autre automatiquement.
-- La vitesse PWM est partagée entre les deux moteurs (réglable de 0 à 255).
+- La vitesse PWM est partagée entre les deux sens de rotation (réglable de 0 à 255).
 - Le `delay(150)` dans la boucle Arduino sert d'anti-rebond basique pour les boutons.
 - Le buffer I2C est limité à 31 caractères : ne pas dépasser cette taille dans les messages envoyés.
