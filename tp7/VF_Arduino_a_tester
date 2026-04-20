@@ -1,0 +1,252 @@
+#include <Wire.h>
+#include <LiquidCrystal.h>
+
+// Initialisation du LCD sur les broches 8,9,4,5,6,7
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
+
+// Broches PWM des deux moteurs
+const int motorPin1 = 3;  // Moteur "Avancer" (->)
+const int motorPin2 = 11; // Moteur "Reculer" (<-)
+
+// Identifiants des boutons du shield LCD
+#define btnRIGHT  0
+#define btnUP     1
+#define btnDOWN   2
+#define btnLEFT   3
+#define btnSELECT 4
+#define btnNONE   5
+
+// Lit le bouton pressé via la tension analogique sur A0
+// Chaque bouton donne une tension différente grâce à un pont diviseur résistif
+int read_LCD_buttons() {
+  int adc = analogRead(A0);
+  if (adc > 1000) return btnNONE;   // Aucun bouton pressé
+  if (adc <  60)  return btnRIGHT;
+  if (adc < 200)  return btnUP;
+  if (adc < 400)  return btnDOWN;
+  if (adc < 600)  return btnLEFT;
+  if (adc < 800)  return btnSELECT;
+  return btnNONE;
+}
+
+// Nombre d'entrées dans le menu principal
+#define MENU_ITEMS 4
+
+// Libellés des entrées du menu principal
+const char* mainMenu[MENU_ITEMS] = {
+  "1.Avancer (->)",
+  "2.Reculer (<-)",
+  "3.Vitesse",
+  "4.Infos"
+};
+
+// Index de l'entrée actuellement sélectionnée (0 à MENU_ITEMS-1)
+int  menuIndex = 0;
+
+// Indique si on est dans un sous-menu (true) ou dans le menu principal (false)
+bool inSubMenu = false;
+
+// États ON/OFF des deux moteurs
+bool motor1On = false;
+bool motor2On = false;
+
+// Vitesse PWM commune aux deux moteurs (0 = arrêt, 255 = pleine vitesse)
+int motorSpeed = 128;
+
+// Adresse I2C de l'Arduino en tant qu'esclave
+#define I2C_ADDR 8
+
+// Buffer de réception des messages I2C
+char receivedMessage[32];
+
+// Drapeau levé par l'interruption I2C quand un message est disponible
+volatile bool newData = false;
+
+// Efface les deux lignes du LCD en écrivant des espaces
+void lcdClear2() {
+  lcd.setCursor(0, 0); lcd.print("                ");
+  lcd.setCursor(0, 1); lcd.print("                ");
+}
+
+// Affiche le menu principal :
+// Ligne 0 = entrée courante avec curseur ">"
+// Ligne 1 = entrée suivante en aperçu
+void displayMainMenu() {
+  lcdClear2();
+  lcd.setCursor(0, 0);
+  lcd.print("> ");
+  lcd.print(mainMenu[menuIndex]);
+  lcd.setCursor(0, 1);
+  int next = (menuIndex + 1) % MENU_ITEMS; // Entrée suivante (boucle)
+  lcd.print("  ");
+  lcd.print(mainMenu[next]);
+}
+
+// Affiche le sous-menu correspondant à l'entrée sélectionnée
+void displaySubMenu() {
+  lcdClear2();
+  lcd.setCursor(0, 0);
+
+  switch (menuIndex) {
+
+    case 0: // Sous-menu moteur "Avancer"
+      lcd.print("Avancer (->):");
+      lcd.setCursor(0, 1);
+      lcd.print(motor1On ? "[ON ]  SELECT=OFF" : "[OFF]  SELECT=ON ");
+      break;
+
+    case 1: // Sous-menu moteur "Reculer"
+      lcd.print("Reculer (<-)");
+      lcd.setCursor(0, 1);
+      lcd.print(motor2On ? "[ON ]  SELECT=OFF" : "[OFF]  SELECT=ON ");
+      break;
+
+    case 2: // Sous-menu réglage de la vitesse PWM
+      lcd.print("Vitesse PWM:");
+      lcd.setCursor(0, 1);
+      lcd.print("< ");
+      lcd.print(motorSpeed);
+      lcd.print(" >   (0-255)");
+      break;
+
+    case 3: // Sous-menu informations : état des deux moteurs + vitesse
+      lcd.print(" (->):");
+      lcd.print(motor1On ? "ON " : "OFF");
+      lcd.print(" (<-):");
+      lcd.print(motor2On ? "ON " : "OFF");
+      lcd.setCursor(0, 1);
+      lcd.print("Vitesse: ");
+      lcd.print(motorSpeed);
+      break;
+  }
+}
+
+// Applique l'état ON/OFF et la vitesse PWM aux deux broches moteur
+void applyMotors() {
+  analogWrite(motorPin1, motor1On ? motorSpeed : 0);
+  analogWrite(motorPin2, motor2On ? motorSpeed : 0);
+}
+
+// Callback I2C : appelé automatiquement à la réception d'un message
+// Remplit receivedMessage et lève le drapeau newData
+void receiveEvent(int howMany) {
+  int i = 0;
+  while (Wire.available() && i < 31) receivedMessage[i++] = Wire.read();
+  receivedMessage[i] = '\0'; // Termine la chaîne
+  newData = true;
+}
+
+// Callback I2C : répond "OK" quand le maître demande une donnée
+void requestEvent() { Wire.write("OK"); }
+
+void setup() {
+  // Configure les broches moteur en sortie et assure l'arrêt au démarrage
+  pinMode(motorPin1, OUTPUT);
+  pinMode(motorPin2, OUTPUT);
+  analogWrite(motorPin1, 0);
+  analogWrite(motorPin2, 0);
+
+  Serial.begin(9600);
+
+  // Démarrage du LCD et écran de bienvenue
+  lcd.begin(16, 2);
+  lcd.print("Rail lineaire");
+  lcd.setCursor(0, 1);
+  lcd.print("Initialisation..");
+  delay(1500);
+
+  // Démarrage de l'I2C en mode esclave avec les callbacks
+  Wire.begin(I2C_ADDR);
+  Wire.onReceive(receiveEvent);
+  Wire.onRequest(requestEvent);
+
+  displayMainMenu();
+}
+
+void loop() {
+
+  // Traitement d'une commande reçue via I2C depuis le Pico
+  if (newData) {
+    newData = false;
+
+    // Recherche les sous-chaînes " (->):" et " (<-):" dans le message
+    char* m1 = strstr(receivedMessage, " (->):");
+    char* m2 = strstr(receivedMessage, " (<-):");
+
+    // Met à jour l'état des moteurs si les marqueurs sont trouvés
+    if (m1) motor1On = (strncmp(m1 + 3, "ON", 2) == 0);
+    if (m2) motor2On = (strncmp(m2 + 3, "ON", 2) == 0);
+
+    applyMotors();
+
+    // Rafraîchit l'affichage si un sous-menu est actif
+    if (inSubMenu) displaySubMenu();
+  }
+
+  int btn = read_LCD_buttons();
+  if (btn == btnNONE) { delay(150); return; } // Aucun bouton, on attend
+
+  if (!inSubMenu) {
+
+    // Navigation dans le menu principal
+    switch (btn) {
+      case btnDOWN:   // Descend dans la liste
+        menuIndex = (menuIndex + 1) % MENU_ITEMS;
+        displayMainMenu();
+        break;
+      case btnUP:     // Monte dans la liste
+        menuIndex = (menuIndex - 1 + MENU_ITEMS) % MENU_ITEMS;
+        displayMainMenu();
+        break;
+      case btnSELECT: // Entre dans le sous-menu
+      case btnRIGHT:
+        inSubMenu = true;
+        displaySubMenu();
+        break;
+    }
+
+  } else {
+
+    // Actions dans le sous-menu selon l'entrée active
+    switch (menuIndex) {
+
+      case 0: // Moteur "Avancer" : SELECT inverse l'état, LEFT = retour
+        if (btn == btnSELECT) {
+          motor1On = !motor1On;
+          applyMotors();
+          displaySubMenu();
+        }
+        if (btn == btnLEFT) { inSubMenu = false; displayMainMenu(); }
+        break;
+
+      case 1: // Moteur "Reculer" : SELECT inverse l'état, LEFT = retour
+        if (btn == btnSELECT) {
+          motor2On = !motor2On;
+          applyMotors();
+          displaySubMenu();
+        }
+        if (btn == btnLEFT) { inSubMenu = false; displayMainMenu(); }
+        break;
+
+      case 2: // Réglage vitesse : UP/DOWN par ±10, RIGHT/LEFT par ±1
+        if (btn == btnUP)    motorSpeed = min(255, motorSpeed + 10);
+        if (btn == btnDOWN)  motorSpeed = max(0,   motorSpeed - 10);
+        if (btn == btnRIGHT) motorSpeed = min(255, motorSpeed + 1);
+        if (btn == btnLEFT) {
+          if (motorSpeed > 0) motorSpeed = max(0, motorSpeed - 1);
+          else { inSubMenu = false; displayMainMenu(); break; } // Retour si déjà à 0
+        }
+        if (btn == btnSELECT) { inSubMenu = false; displayMainMenu(); break; }
+        applyMotors();
+        displaySubMenu();
+        break;
+
+      case 3: // Infos : n'importe quel bouton ramène au menu principal
+        inSubMenu = false;
+        displayMainMenu();
+        break;
+    }
+  }
+
+  delay(150); // Anti-rebond simple : ignore les appuis pendant 150 ms
+}
