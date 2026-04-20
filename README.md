@@ -126,7 +126,7 @@ Pico GND  →  Arduino GND
 | `/` | Page d'accueil |
 | `/telecom` | Page de télécommande |
 | `/avancer` | Démarre le moteur dans le sens horaire |
-| `/reculer` | Démarre le moteur dans le sens anti-horaire (arrête le moteur 1) |
+| `/reculer` | Démarre le moteur dans le sens anti-horaire |
 | `/stop` | Arrête le moteur |
 | `/lighton` | Allume la LED du Pico |
 | `/lightoff` | Éteint la LED du Pico |
