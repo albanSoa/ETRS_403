@@ -109,7 +109,7 @@ void displaySubMenu() {
       lcd.print(" >   (0-255)");
       break;
 
-    case 3: // Sous-menu informations : état des deux moteurs + vitesse
+    case 3: // Sous-menu informations : état du moteur + vitesse
       lcd.print(" (->):");
       lcd.print(motor1On ? "ON " : "OFF");
       lcd.print(" (<-):");
