@@ -12,10 +12,10 @@ password = 'matlablego'
 # Initialisation du bus I2C sur les broches GP4 (SDA) et GP5 (SCL) à 400 kHz
 i2c = I2C(0, sda=Pin(4), scl=Pin(5), freq=400000)
 
-# Adresse I2C de l'Arduino esclave
+# Adresse I2C de l Arduino esclave
 ARDUINO_ADDR = 8
 
-# Formate et envoie l'état du système à l'Arduino via I2C
+# Formate et envoie l état du système à l Arduino via I2C
 # Format : "T:xx.x/L:ON|OFF/M1:ON|OFF/M2:ON|OFF"
 def send_to_arduino(temperature, led_state, motor1, motor2):
     message = "T:{}/L:{}/M1:{}/M2:{}".format(
@@ -29,7 +29,7 @@ def send_to_arduino(temperature, led_state, motor1, motor2):
     except Exception as e:
         print("Erreur I2C : " + str(e))
 
-# Connecte le Pico au réseau Wi-Fi et retourne l'adresse IP obtenue
+# Connecte le Pico au réseau Wi-Fi et retourne l adresse IP obtenue
 def connect():
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
@@ -63,7 +63,7 @@ div.container { text-align: center; padding: 20px 20px 80px 20px; }
 </style>
 """
 
-# Génère et retourne le HTML de la page d'accueil
+# Génère et retourne le HTML de la page d accueil
 # Affiche la température actuelle et une présentation du projet
 def page_accueil(temperature):
     html = """<!DOCTYPE html><html lang="fr"><head>
@@ -93,9 +93,9 @@ def page_accueil(temperature):
 
 # Génère et retourne le HTML de la page de télécommande
 # Affiche les boutons de contrôle et le potentiomètre de vitesse
-# Les couleurs des indicateurs changent selon l'état ON/OFF de chaque composant
+# Les couleurs des indicateurs changent selon l état ON/OFF de chaque composant
 def page_telecom(temperature, led_state, motor1, motor2):
-    # Couleurs des indicateurs d'état dans la barre de statut
+    # Couleurs des indicateurs d état dans la barre de statut
     m1_color  = "#4CAF50" if motor1    == "ON" else "#aaaaaa"
     m2_color  = "#2196F3" if motor2    == "ON" else "#aaaaaa"
     led_color = "#f0c040" if led_state == "ON" else "#aaaaaa"
@@ -183,7 +183,7 @@ input[type=range] { position: absolute; top: 50%; left: 50%; transform: translat
 const slider = document.getElementById("slider");
 const output = document.getElementById("output");
 
-// Met à jour l'affichage texte sous le slider selon la valeur
+// Met à jour l affichage texte sous le slider selon la valeur
 function updateDisplay(val) {
   val = parseInt(val);
   if (val > 0) output.textContent = "Avance : " + val + "%";
@@ -221,7 +221,7 @@ def serve(connection):
     temperature = 0
 
     while True:
-        # Attente et acceptation d'une connexion entrante
+        # Attente et acceptation d une connexion entrante
         client  = connection.accept()[0]
         request = client.recv(1024)
         request = str(request)
@@ -254,7 +254,7 @@ def serve(connection):
         # Lecture de la température interne du Pico
         temperature = pico_temp_sensor.temp
 
-        # Envoi de l'état complet à l'Arduino via I2C
+        # Envoi de l état complet à l Arduino via I2C
         send_to_arduino(temperature, led_state, motor1, motor2)
 
         # Sélection et envoi de la page HTML en réponse
@@ -271,8 +271,8 @@ def serve(connection):
         client.send(html)
         client.close()
 
-# Point d'entrée : connexion Wi-Fi puis démarrage du serveur
-# En cas d'interruption clavier, redémarre le Pico proprement
+# Point d entrée : connexion Wi-Fi puis démarrage du serveur
+# En cas d interruption clavier, redémarre le Pico proprement
 try:
     ip = connect()
     connection = open_socket(ip)
