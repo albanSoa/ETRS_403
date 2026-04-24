@@ -1,0 +1,270 @@
+#include <Wire.h>
+#include <LiquidCrystal.h>
+
+#define I2C_ADDR 8
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
+
+// ── Pins moteurs ─────────────────────────────────────────────────────────────
+const int motorPin1 = 3;
+const int motorPin2 = 11;
+
+// ── Boutons ──────────────────────────────────────────────────────────────────
+#define btnRIGHT  0
+#define btnUP     1
+#define btnDOWN   2
+#define btnLEFT   3
+#define btnSELECT 4
+#define btnNONE   5
+
+int read_LCD_buttons() {
+  int adc = analogRead(A0);
+  if (adc > 1000) return btnNONE;
+  if (adc <  60)  return btnRIGHT;
+  if (adc < 200)  return btnUP;
+  if (adc < 400)  return btnDOWN;
+  if (adc < 600)  return btnLEFT;
+  if (adc < 800)  return btnSELECT;
+  return btnNONE;
+}
+
+// ── Menu ─────────────────────────────────────────────────────────────────────
+#define MENU_ITEMS 4
+const char* mainMenu[MENU_ITEMS] = {
+  "1.Avancer (->)",
+  "2.Reculer (<-)",
+  "3.Vitesse",
+  "4.Infos"
+};
+
+int  menuIndex  = 0;
+bool inSubMenu  = false;
+
+// ── État moteurs ─────────────────────────────────────────────────────────────
+bool motor1On   = false;
+bool motor2On   = false;
+int  motorSpeed = 150;   // 0-255 PWM
+
+// ── Source de la dernière commande ───────────────────────────────────────────
+// Permet de savoir si c'est le bouton ou le site qui commande
+#define SRC_BOUTON 0
+#define SRC_SITE   1
+int lastSource = SRC_BOUTON;
+
+// ── I2C ──────────────────────────────────────────────────────────────────────
+char receivedMessage[64];
+volatile bool newData = false;
+
+// ── Utilitaires ──────────────────────────────────────────────────────────────
+char* getValue(char* msg, const char* key) {
+  char* p = strstr(msg, key);
+  if (p == NULL) return NULL;
+  return p + strlen(key);
+}
+
+void applyMotors() {
+  analogWrite(motorPin1, motor1On ? motorSpeed : 0);
+  analogWrite(motorPin2, motor2On ? motorSpeed : 0);
+}
+
+void lcdClear2() {
+  lcd.setCursor(0, 0); lcd.print("                ");
+  lcd.setCursor(0, 1); lcd.print("                ");
+}
+
+// ── Affichage menu principal ──────────────────────────────────────────────────
+void displayMainMenu() {
+  lcdClear2();
+  lcd.setCursor(0, 0);
+  lcd.print("> ");
+  lcd.print(mainMenu[menuIndex]);
+  lcd.setCursor(0, 1);
+  lcd.print("  ");
+  lcd.print(mainMenu[(menuIndex + 1) % MENU_ITEMS]);
+}
+
+// ── Affichage sous-menu ───────────────────────────────────────────────────────
+void displaySubMenu() {
+  lcdClear2();
+  lcd.setCursor(0, 0);
+  switch (menuIndex) {
+    case 0:
+      lcd.print("Avancer (->):");
+      lcd.setCursor(0, 1);
+      lcd.print(motor1On ? "[ON ]  SEL=OFF" : "[OFF]  SEL=ON ");
+      break;
+    case 1:
+      lcd.print("Reculer (<-):");
+      lcd.setCursor(0, 1);
+      lcd.print(motor2On ? "[ON ]  SEL=OFF" : "[OFF]  SEL=ON ");
+      break;
+    case 2:
+      lcd.print("Vitesse PWM:");
+      lcd.setCursor(0, 1);
+      lcd.print("< ");
+      lcd.print(motorSpeed);
+      lcd.print(" >  (0-255)");
+      break;
+    case 3:
+      lcd.print("->:");
+      lcd.print(motor1On ? "ON " : "OFF");
+      lcd.print("  <-:");
+      lcd.print(motor2On ? "ON " : "OFF");
+      lcd.setCursor(0, 1);
+      lcd.print("Vit:");
+      lcd.print(motorSpeed);
+      lcd.print(lastSource == SRC_SITE ? "  [SITE]" : "  [BTN] ");
+      break;
+  }
+}
+
+// ── Affichage état site web (quand commande I2C reçue) ───────────────────────
+void displaySiteStatus() {
+  lcdClear2();
+  lcd.setCursor(0, 0);
+  lcd.print("->:");
+  lcd.print(motor1On ? "ON " : "OFF");
+  lcd.print("  <-:");
+  lcd.print(motor2On ? "ON " : "OFF");
+  lcd.setCursor(0, 1);
+  lcd.print("Vit:");
+  lcd.print(motorSpeed);
+  lcd.print("  [SITE]");
+}
+
+// ── I2C callbacks ─────────────────────────────────────────────────────────────
+void receiveEvent(int howMany) {
+  int i = 0;
+  while (Wire.available() && i < 63) receivedMessage[i++] = Wire.read();
+  receivedMessage[i] = '\0';
+  newData = true;
+}
+void requestEvent() { Wire.write("OK"); }
+
+// ── Setup ─────────────────────────────────────────────────────────────────────
+void setup() {
+  pinMode(motorPin1, OUTPUT);
+  pinMode(motorPin2, OUTPUT);
+  analogWrite(motorPin1, 0);
+  analogWrite(motorPin2, 0);
+
+  Serial.begin(9600);
+
+  lcd.begin(16, 2);
+  lcd.print("Rail lineaire");
+  lcd.setCursor(0, 1);
+  lcd.print("Initialisation..");
+  delay(1500);
+
+  Wire.begin(I2C_ADDR);
+  Wire.onReceive(receiveEvent);
+  Wire.onRequest(requestEvent);
+
+  Serial.println("Pret.");
+  displayMainMenu();
+}
+
+// ── Loop ──────────────────────────────────────────────────────────────────────
+void loop() {
+
+  // ── 1. Commande I2C reçue depuis le site (prioritaire) ───────────────────
+  if (newData) {
+    newData = false;
+
+    Serial.print("Recu : [");
+    Serial.print(receivedMessage);
+    Serial.println("]");
+
+    char* m1val = getValue(receivedMessage, "M1:");
+    char* m2val = getValue(receivedMessage, "M2:");
+    char* sval  = getValue(receivedMessage, "S:");
+
+    if (m1val != NULL) motor1On = (strncmp(m1val, "ON", 2) == 0);
+    if (m2val != NULL) motor2On = (strncmp(m2val, "ON", 2) == 0);
+    if (sval  != NULL) {
+      int pct = atoi(sval);
+      motorSpeed = map(constrain(pct, 0, 100), 0, 100, 0, 255);
+    }
+
+    applyMotors();
+    lastSource = SRC_SITE;
+
+    Serial.print("M1="); Serial.print(motor1On ? "ON" : "OFF");
+    Serial.print(" M2="); Serial.print(motor2On ? "ON" : "OFF");
+    Serial.print(" spd="); Serial.println(motorSpeed);
+
+    // Met à jour l'écran selon où on est dans le menu
+    if (inSubMenu) displaySubMenu();
+    else           displaySiteStatus();
+
+    delay(150);
+    return;  // on revient au début du loop sans lire les boutons
+  }
+
+  // ── 2. Lecture boutons physiques ─────────────────────────────────────────
+  int btn = read_LCD_buttons();
+  if (btn == btnNONE) { delay(150); return; }
+
+  lastSource = SRC_BOUTON;
+
+  if (!inSubMenu) {
+    switch (btn) {
+      case btnDOWN:
+        menuIndex = (menuIndex + 1) % MENU_ITEMS;
+        displayMainMenu();
+        break;
+      case btnUP:
+        menuIndex = (menuIndex - 1 + MENU_ITEMS) % MENU_ITEMS;
+        displayMainMenu();
+        break;
+      case btnSELECT:
+      case btnRIGHT:
+        inSubMenu = true;
+        displaySubMenu();
+        break;
+    }
+
+  } else {
+    switch (menuIndex) {
+
+      case 0: // Avancer
+        if (btn == btnSELECT) {
+          motor1On = !motor1On;
+          if (motor1On) motor2On = false;  // un seul sens à la fois
+          applyMotors();
+          displaySubMenu();
+        }
+        if (btn == btnLEFT) { inSubMenu = false; displayMainMenu(); }
+        break;
+
+      case 1: // Reculer
+        if (btn == btnSELECT) {
+          motor2On = !motor2On;
+          if (motor2On) motor1On = false;  // un seul sens à la fois
+          applyMotors();
+          displaySubMenu();
+        }
+        if (btn == btnLEFT) { inSubMenu = false; displayMainMenu(); }
+        break;
+
+      case 2: // Vitesse
+        if (btn == btnUP)    motorSpeed = min(255, motorSpeed + 10);
+        if (btn == btnDOWN)  motorSpeed = max(0,   motorSpeed - 10);
+        if (btn == btnRIGHT) motorSpeed = min(255, motorSpeed + 1);
+        if (btn == btnLEFT) {
+          if (motorSpeed > 0) { motorSpeed = max(0, motorSpeed - 1); }
+          else { inSubMenu = false; displayMainMenu(); break; }
+        }
+        if (btn == btnSELECT) { inSubMenu = false; displayMainMenu(); break; }
+        applyMotors();
+        displaySubMenu();
+        break;
+
+      case 3: // Infos — retour sur n'importe quel bouton
+        inSubMenu = false;
+        displayMainMenu();
+        break;
+    }
+  }
+
+  delay(150);
+}
